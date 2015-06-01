@@ -37,6 +37,8 @@ public class SearchDatabase extends SQLiteOpenHelper {
     static final String URI_KEY                 = "uri";
     static final String TYPE_KEY                = "type";
     static final String IMAGE_URI_KEY           = "imageuri";
+
+    static final String[] METADATA_TABLE_COLUMNS = {MODULE_ID_KEY, FILE_ID_KEY, TITLE_KEY, SUBTITLE_KEY, URI_KEY, TYPE_KEY, IMAGE_URI_KEY};
     //endregion
     //endregion
 
@@ -47,13 +49,22 @@ public class SearchDatabase extends SQLiteOpenHelper {
     }
     //endregion
 
-    //region Setup
+    //region Database Methods
     @Override
     public void onCreate(SQLiteDatabase db)
     {
         initializeDatabaseTable(db);
+        //issueAutomergeCommand(db);
     }
 
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)
+    {
+        this.onCreate(db);
+    }
+    //endregion
+
+    //region Setup
     private void initializeDatabaseTable(SQLiteDatabase db) {
         // Create statement
         //todo crashes if we use if not exists. Figure out if not using it is ok
@@ -67,7 +78,7 @@ public class SearchDatabase extends SQLiteOpenHelper {
                 WEIGHT_2_KEY + " TEXT, " +
                 WEIGHT_3_KEY + " TEXT, " +
                 WEIGHT_4_KEY + " TEXT, " +
-                "PRIMARY KEY (" + MODULE_ID_KEY + ", " + FILE_ID_KEY + "));";
+                "PRIMARY KEY (" + MODULE_ID_KEY + ", " + FILE_ID_KEY + ")); ";
 
         final String METADATA_TABLE_CREATE_COMMAND = "CREATE TABLE IF NOT EXISTS " + METADATA_TABLE_NAME + " (" +
                 MODULE_ID_KEY + " TEXT NOT NULL, " +
@@ -79,16 +90,16 @@ public class SearchDatabase extends SQLiteOpenHelper {
                 IMAGE_URI_KEY + " TEXT, " +
                 "PRIMARY KEY (" + MODULE_ID_KEY + ", " + FILE_ID_KEY + "));";
 
-        final String COMBINED_COMMAND = INDEX_TABLE_CREATE_COMMAND + " " + METADATA_TABLE_CREATE_COMMAND;
-
         db.execSQL(INDEX_TABLE_CREATE_COMMAND);
         db.execSQL(METADATA_TABLE_CREATE_COMMAND);
     }
 
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)
-    {
-        this.onCreate(db);
+    private void issueAutomergeCommand(SQLiteDatabase database) {
+        final int AUTOMERGE_NUMBER = 2;
+        final String COMMAND = "INSERT INTO " + INDEX_TABLE_NAME + "("+INDEX_TABLE_NAME +") VALUES('automerge=" + AUTOMERGE_NUMBER + "');";
+        database.execSQL(COMMAND);
     }
+
+    private native double getThing();
     //endregion
 }
