@@ -53,7 +53,7 @@ public class SearchDatabase extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db)
     {
-        initializeDatabaseTable(db);
+        //initializeDatabaseTable(db);
         //issueAutomergeCommand(db);
     }
 
@@ -100,6 +100,5 @@ public class SearchDatabase extends SQLiteOpenHelper {
         database.execSQL(COMMAND);
     }
 
-    private native double getThing();
     //endregion
 }
