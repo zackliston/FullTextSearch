@@ -15,6 +15,8 @@ public class SearchResult
     boolean isFavorited = false;
     String fileId = null;
     String moduleId = null;
+
+    SearchManager.IsSearchResultFavorited isSearchResultFavoritedDelegate;
     //endregion
 
     //region Getters

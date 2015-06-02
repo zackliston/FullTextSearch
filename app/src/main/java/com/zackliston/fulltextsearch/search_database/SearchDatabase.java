@@ -5,11 +5,25 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by Zack Liston on 5/27/15.
  */
 public class SearchDatabase extends SQLiteOpenHelper {
+
+    class SearchReturn {
+        private List<SearchResult> results;
+        private List<String> suggestions;
+
+        public List<SearchResult> getResults() {
+            return results;
+        }
+        public List<String> getSuggestions() {
+            return suggestions;
+        }
+    }
 
     //region Constants
     private static final int    DATABASE_VERSION        = 1;
@@ -101,4 +115,16 @@ public class SearchDatabase extends SQLiteOpenHelper {
     }
 
     //endregion
+
+    public SearchReturn search(String searchText, int limit, int offset, boolean preferPhraseSearching) {
+        SearchReturn searchReturn = new SearchReturn();
+        searchReturn.results = new ArrayList<>(0);
+        searchReturn.suggestions = new ArrayList<>(0);
+
+        return searchReturn;
+    }
+
+    public static String searchableStringFromString(String oldString) {
+        return oldString;
+    }
 }

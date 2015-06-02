@@ -1,6 +1,8 @@
 package com.zackliston.fulltextsearch.search_database;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -26,6 +28,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by Zack Liston on 6/1/15.
@@ -33,8 +37,8 @@ import java.util.Map;
 public class SearchManager extends Manager
 {
     //region Callbacks
-    public interface RemoteSearchCallback {
-        void remoteSearchComplete(List<SearchResult> searchResults, List<String> searchSuggestions, String errorMessage);
+    public interface SearchCallback {
+        void searchComplete(List<SearchResult> searchResults, List<String> searchSuggestions, String errorMessage);
     }
     //endregion
 
@@ -51,7 +55,7 @@ public class SearchManager extends Manager
     }
 
     public interface RemoteSearch {
-        boolean remoteSearch(String searchText, int limit, int offset, RemoteSearchCallback callback);
+        boolean remoteSearch(String searchText, int limit, int offset, SearchCallback callback);
     }
     //endregion
 
@@ -100,11 +104,12 @@ public class SearchManager extends Manager
 
     //region Properties
     private Context context;
+    private ExecutorService backgroundExecutor = Executors.newCachedThreadPool();
 
     private IsSearchResultFavorited favoritedDelegate;
     private BackupSearch backupSearchDelegate;
     private RemoteSearch remoteSearchDelegate;
-    private SearchWorkerProtocol searchWorkerDelegate;
+    SearchWorkerProtocol searchWorkerDelegate;
 
     Map<String, SearchDatabase> searchDatabaseMap = new HashMap<>();
     //endregion
@@ -185,10 +190,22 @@ public class SearchManager extends Manager
     //region TaskManager Manager Methods
     @Override
     protected TaskWorker taskWorkerForWorkItem(InternalWorkItem internalWorkItem) {
-        return null;
+        TaskWorker worker = null;
+        if (internalWorkItem.getTaskType().equals(TASK_TYPE)) {
+            SearchTaskWorker searchWorker = new SearchTaskWorker();
+            searchWorker.delegate = searchWorkerDelegate;
+            worker = searchWorker;
+        } else {
+            Log.e("SearchManager", "Error in taskWorkerForWorkItem unrecognized task type " + internalWorkItem.getTaskType());
+        }
+        if (worker != null) {
+            worker.setupWithWorkItem(internalWorkItem);
+        }
+        return worker;
     }
     //endregion
 
+    //region Public Methods
     //region Queue Search Tasks
     @Nullable
     public static String saveIndexFileInfoToFile(String moduleId, String fileId, String language, double boost, Map<String, String> searchableStrings, Map<String, String> fileMetadata) throws InvalidParameterException {
@@ -303,6 +320,59 @@ public class SearchManager extends Manager
 
         return getTaskManager(context).queueTask(task);
     }
+    //endregion
+
+    //region Search
+    public boolean localSearch(final String searchText, final int limit, final int offset, final String searchDatabaseName, final SearchCallback searchCallback) {
+        boolean success = true;
+        if (limit < 1) {
+            return success;
+        }
+        if (searchCallback == null) {
+            Log.e("SearchManager", "Cannot perform search in localSearch because no callback was specified.");
+            return false;
+        }
+
+        backgroundExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                List<SearchResult> results;
+
+                SearchDatabase searchDatabase = searchDatabaseForName(searchDatabaseName);
+                final SearchDatabase.SearchReturn searchReturn = searchDatabase.search(searchText, limit, offset, true);
+                results = searchReturn.getResults();
+
+                if (results.size() > 0) {
+                    for (SearchResult result : results) {
+                        result.isSearchResultFavoritedDelegate = SearchManager.this.favoritedDelegate;
+                    }
+                } else {
+                    if (backupSearchDelegate != null) {
+                        results = backupSearchDelegate.backupSearch(searchText, limit, offset);
+                    }
+                }
+
+                final List<SearchResult> finalResults = results;
+                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                    @Override
+                    public void run() {
+                        searchCallback.searchComplete(finalResults, searchReturn.getSuggestions(), null);
+                    }
+                });
+            }
+        });
+        return true;
+    }
+
+    public boolean fullSearch(String searchText, int limit, int offset, String searchDatabaseName, SearchCallback localSearchCallback, SearchCallback remoteSearchCallback) {
+        boolean localSuccess = localSearch(searchText, limit, offset, searchDatabaseName, localSearchCallback);
+        boolean remoteSuccess = true;
+        if (remoteSearchDelegate != null) {
+            remoteSuccess = remoteSearchDelegate.remoteSearch(searchText, limit, offset, remoteSearchCallback);
+        }
+        return (localSuccess && remoteSuccess);
+    }
+    //endregion
     //endregion
 
     //region File Operations

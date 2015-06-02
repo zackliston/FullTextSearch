@@ -3,8 +3,10 @@ package com.zackliston.fulltextsearch.search_database;
 import android.content.Context;
 import android.util.Log;
 
+import com.zackliston.taskmanager.InternalWorkItem;
 import com.zackliston.taskmanager.Task;
 import com.zackliston.taskmanager.TaskManager;
+import com.zackliston.taskmanager.TaskWorker;
 
 import org.apache.commons.io.FileUtils;
 import org.json.JSONArray;
@@ -44,6 +46,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.CoreMatchers.is;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Created by Zack Liston on 5/27/15.
@@ -532,6 +535,29 @@ public class SearchManagerTest {
 
         File directory = new File(Robolectric.application.getFilesDir(), SearchManager.SEARCH_INDEX_INFO_DIRECTORY_NAME);
         assertThat(directory.exists(), is(true));
+    }
+    //endregion
+
+    //region Test TaskWorker
+    @Test
+    public void testTaskWorkerForWorkItem() throws Exception {
+        SearchManager.getInstance().setSearchWorkerDelegate(new SearchManager.SearchWorkerProtocol() {
+            @Override
+            public void searchWorkerIndexedFiles(List<String> moduleIds, List<String> fileIds) {
+
+            }
+        });
+
+        InternalWorkItem workItem = new InternalWorkItem();
+        InternalWorkItem mockWorkItem = spy(workItem);
+        when(mockWorkItem.getTaskType()).thenReturn(SearchManager.TASK_TYPE);
+
+        TaskWorker worker = SearchManager.getInstance().taskWorkerForWorkItem(mockWorkItem);
+        assertThat(worker, notNullValue());
+        assertThat((worker instanceof SearchTaskWorker), is(true));
+
+        SearchTaskWorker searchTaskWorker = (SearchTaskWorker)worker;
+        assertThat(searchTaskWorker.delegate, is(SearchManager.getInstance().searchWorkerDelegate));
     }
     //endregion
 }
