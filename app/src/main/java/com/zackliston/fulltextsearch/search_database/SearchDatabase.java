@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by Zack Liston on 5/27/15.
@@ -124,6 +125,12 @@ public class SearchDatabase extends SQLiteOpenHelper {
         return searchReturn;
     }
 
+    public boolean removeFileFromIndex(String moduleId, String fileId) {
+        return false;
+    }
+    public boolean indexFile(String moduleId, String fileid, String language, double boost, Map<String,String> searchableStrings, Map<String, String> fileMetadata) {
+        return false;
+    }
     public static String searchableStringFromString(String oldString) {
         return oldString;
     }
