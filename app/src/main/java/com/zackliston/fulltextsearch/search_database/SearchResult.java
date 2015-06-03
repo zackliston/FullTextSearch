@@ -19,6 +19,23 @@ public class SearchResult
     SearchManager.IsSearchResultFavorited isSearchResultFavoritedDelegate;
     //endregion
 
+    //region Constructors
+    public static SearchResult newSearchResult(String title, String subtitle, String parentTitle, String uri, String type, String imageUri, boolean isFavorited, String fileId, String moduleId) {
+        SearchResult result = new SearchResult();
+        result.title = title;
+        result.subtitle = subtitle;
+        result.parentTitle = parentTitle;
+        result.uri = uri;
+        result.type = type;
+        result.imageUri = imageUri;
+        result.isFavorited = isFavorited;
+        result.fileId = fileId;
+        result.moduleId = moduleId;
+
+        return result;
+    }
+    //endregion
+
     //region Getters
     public String getTitle() {
         return title;

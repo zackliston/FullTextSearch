@@ -85,7 +85,7 @@ public class SearchManager extends Manager
 
     static final String SEARCH_INDEX_INFO_DIRECTORY_NAME = "ZLSearch_Index_Info";
 
-    static final String TASK_TYPE = "com.agilemd.tasktype.search";
+    public static final String TASK_TYPE = "com.agilemd.tasktype.search";
     static final int MAJOR_PRIORITY = 1000;
     static final int MINOR_PRIORITY_INDEX = 1000;
     static final int MINOR_PRIORITY_REMOVE = 10000;
