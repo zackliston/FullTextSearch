@@ -124,6 +124,15 @@ bool SearchDatabase::close() {
     return (returnValue == SQLITE_OK);
 }
 
+#pragma mark - Searching
+
+bool SearchDatabase::search(std::string searchText, int limit, int offset, bool preferPhraseSearching, SearchResult searchResults[], int * numberOfResults, std::string suggestions[], int * numberOfSuggestions) {
+ 
+    
+    
+    return false;
+}
+
 #pragma mark - Indexing
 
 bool SearchDatabase::index_file(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings, std::map<std::string, std::string> fileMetadata, char **errorMessage) {
@@ -139,10 +148,27 @@ bool SearchDatabase::index_file(std::string moduleId, std::string fileId, std::s
     bool beginTransactionSuccess = begin_transaction(database, errorMessage);
     if (!beginTransactionSuccess) {
         return false;
+    }    
+    
+    sqlite3_stmt * indexInsertStatement = index_insert_statement(moduleId, fileId, language, boost, searchableStrings);
+    int insertReturnValue = sqlite3_step(indexInsertStatement);
+    sqlite3_finalize(indexInsertStatement);
+    
+    if (insertReturnValue != SQLITE_DONE) {
+        *errorMessage = strdup(sqlite3_errmsg(database));
+        rollback_transaction(database, NULL);
+        return false;
     }
     
+    sqlite3_stmt * metaInsertStatement = meta_insert_statement(moduleId, fileId, fileMetadata);
+    insertReturnValue = sqlite3_step(metaInsertStatement);
+    sqlite3_finalize(metaInsertStatement);
     
-    
+    if (insertReturnValue != SQLITE_DONE) {
+        *errorMessage = strdup(sqlite3_errmsg(database));
+        rollback_transaction(database, NULL);
+        return false;
+    }
     
     return commit_transaction(database, errorMessage);
 }
@@ -154,17 +180,32 @@ bool SearchDatabase::remove_file(std::string moduleId, std::string fileId, char 
     if (!beginTransactionSuccess) {
         return false;
     }
-    std::string indexDeleteCommand = "DELETE FROM " + kZLSearchDBIndexTableName + " WHERE " + kZLSearchDBModuleIdKey + " = " + moduleId + " AND " + kZLSearchDBEntityIdKey + " = " + fileId;
-    int deleteReturnValue = sqlite3_exec(database, indexDeleteCommand.c_str(), NULL, NULL, errorMessage);
-    if (deleteReturnValue != SQLITE_OK) {
-        rollback_transaction(database, errorMessage);
+    std::string indexDeleteCommand = "DELETE FROM " + kZLSearchDBIndexTableName + " WHERE " + kZLSearchDBModuleIdKey + " = ? AND " + kZLSearchDBEntityIdKey + " = ?";
+    sqlite3_stmt * indexDeleteStatement;
+    sqlite3_prepare_v2(database, indexDeleteCommand.c_str(), -1, &indexDeleteStatement, NULL);
+    sqlite3_bind_text(indexDeleteStatement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(indexDeleteStatement, 2, fileId.c_str(), -1, NULL);
+    
+    int deleteReturnValue = sqlite3_step(indexDeleteStatement);
+    sqlite3_finalize(indexDeleteStatement);
+    if (deleteReturnValue != SQLITE_DONE) {
+        *errorMessage = strdup(sqlite3_errmsg(database));
+        rollback_transaction(database, NULL);
         return false;
     }
     
-    std::string metaDeleteCommand = "DELETE FROM " + kZLSearchDBMetadataTableName + " WHERE " + kZLSearchDBModuleIdKey + " = " + moduleId + " AND " + kZLSearchDBEntityIdKey + " = " + fileId;
-    deleteReturnValue = sqlite3_exec(database, indexDeleteCommand.c_str(), NULL, NULL, errorMessage);
-    if (deleteReturnValue != SQLITE_OK) {
-        rollback_transaction(database, errorMessage);
+    std::string metaDeleteCommand = "DELETE FROM " + kZLSearchDBMetadataTableName + " WHERE " + kZLSearchDBModuleIdKey + " = ? AND " + kZLSearchDBEntityIdKey + " = ?";
+    sqlite3_stmt * metaDeleteStatement;
+    sqlite3_prepare_v2(database, metaDeleteCommand.c_str(), -1, &metaDeleteStatement, NULL);
+    sqlite3_bind_text(metaDeleteStatement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(metaDeleteStatement, 2, fileId.c_str(), -1, NULL);
+    
+    deleteReturnValue = sqlite3_step(metaDeleteStatement);
+    sqlite3_finalize(metaDeleteStatement);
+    
+    if (deleteReturnValue != SQLITE_DONE) {
+        *errorMessage = strdup(sqlite3_errmsg(database));
+        rollback_transaction(database, NULL);
         return false;
     }
     
@@ -186,11 +227,39 @@ bool SearchDatabase::reset_database(char **errorMessage) {
 
 #pragma mark - Helpers
 
-sqlite3_stmt * SearchDatabase::index_insert_statement(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings, std::map<std::string, std::string> fileMetadata) {
-    std::string insertCommand = "
-    sqlite3_stmt * statement;
+sqlite3_stmt * SearchDatabase::index_insert_statement(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings) {
+    std::string insertCommand = "INSERT INTO " + kZLSearchDBIndexTableName + "(" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBLanguageKey + ", " + kZLSearchDBBoostKey + ", " + kZLSearchDBWeight0Key + ", " + kZLSearchDBWeight1Key + ", " + kZLSearchDBWeight2Key + ", " + kZLSearchDBWeight3Key + ", " + kZLSearchDBWeight4Key + ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);";
     
-    return NULL;
+    sqlite3_stmt * statement;
+    sqlite3_prepare_v2(database, insertCommand.c_str(), -1, &statement, NULL);
+    
+    sqlite3_bind_text(statement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 2, fileId.c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 3, language.c_str(), -1, NULL);
+    sqlite3_bind_double(statement, 4, boost);
+    sqlite3_bind_text(statement, 5, searchableStrings[kZLSearchDBWeight0Key].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 6, searchableStrings[kZLSearchDBWeight1Key].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 7, searchableStrings[kZLSearchDBWeight2Key].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 8, searchableStrings[kZLSearchDBWeight3Key].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 9, searchableStrings[kZLSearchDBWeight4Key].c_str(), -1, NULL);
+    
+    return statement;
+}
+
+sqlite3_stmt * SearchDatabase::meta_insert_statement(std::string moduleId, std::string fileId, std::map<std::string, std::string> metadata) {
+    std::string insertCommand = "INSERT INTO " + kZLSearchDBMetadataTableName + " (" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBTitleKey + ", " + kZLSearchDBSubtitleKey + ", " + kZLSearchDBTypeKey + ", " + kZLSearchDBUriKey + ", " + kZLSearchDBImageUriKey + ") VALUES (?, ?, ?, ?, ?, ?, ?);";
+    
+    sqlite3_stmt * statement;
+    sqlite3_prepare_v2(database, insertCommand.c_str(), -1, &statement, NULL);
+    sqlite3_bind_text(statement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 2, fileId.c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 3, metadata[kZLSearchDBTitleKey].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 4, metadata[kZLSearchDBSubtitleKey].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 5, metadata[kZLSearchDBTypeKey].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 6, metadata[kZLSearchDBUriKey].c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 7, metadata[kZLSearchDBImageUriKey].c_str(), -1, NULL);
+
+    return statement;
 }
 
 bool SearchDatabase::begin_transaction(sqlite3 *db, char **errorMessage) {
@@ -221,10 +290,12 @@ bool SearchDatabase::commit_transaction(sqlite3 *db, char **errorMessage) {
 }
 
 bool SearchDatabase::does_file_exist(std::string moduleId, std::string fileId, char **errorMessage) {
-    std::string indexQuery = "SELECT * FROM " + kZLSearchDBIndexTableName + " WHERE " + kZLSearchDBModuleIdKey + " = " + moduleId + " AND " + kZLSearchDBEntityIdKey + " = " + fileId;
+    std::string indexQuery = "SELECT * FROM " + kZLSearchDBIndexTableName + " WHERE " + kZLSearchDBModuleIdKey + " = ? AND " + kZLSearchDBEntityIdKey + " = ?";
     
     sqlite3_stmt * statement;
     sqlite3_prepare_v2(database, indexQuery.c_str(), -1, &statement, NULL);
+    sqlite3_bind_text(statement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(statement, 2, fileId.c_str(), -1, NULL);
     
     int returnValue = sqlite3_step(statement);
     while (returnValue == SQLITE_BUSY) {
@@ -242,4 +313,19 @@ bool SearchDatabase::does_file_exist(std::string moduleId, std::string fileId, c
     return false;
 }
 
+std::string SearchDatabase::formatSearchText(std::string *searchText) {
+    const std::string whitespace = " \t";
+    const auto strBegin = searchText->find_first_not_of(whitespace);
+    if (strBegin == std::string::npos)
+        return ""; // no content
+    
+    const auto strEnd = searchText->find_last_not_of(whitespace);
+    const auto strRange = strEnd - strBegin + 1;
+    
+    return searchText->substr(strBegin, strRange) + "*";
+}
+
+std::string SearchDatabase::stringForPhraseSearching(std::string *searchText) {
+    return ("\""+ *searchText +"\"");
+}
 
