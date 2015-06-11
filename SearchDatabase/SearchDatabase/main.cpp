@@ -32,7 +32,7 @@ int main(int argc, const char * argv[]) {
     }
     
     std::map<std::string, std::string> searchable;
-
+    searchable[kZLSearchDBWeight4Key] = "this is a hello message";
     std::map<std::string, std::string> meta;
     std::string moduleId = "module";
     std::string fileId = "fileId";
@@ -55,27 +55,14 @@ int main(int argc, const char * argv[]) {
         printf("file not indexed %s\n", errorMessage);
     }
     
-    bool removeSuccess = database.remove_file(moduleId, fileId, &errorMessage);
-    if (removeSuccess) {
-        printf("remove was successful\n");
-    } else {
-        printf("Remove failed %s\n", errorMessage);
-    }
-    
-    doesFileExist = database.does_file_exist(moduleId, fileId, &errorMessage);
-    if (doesFileExist) {
-        printf("file is indexed\n");
-    } else {
-        printf("file not indexed %s\n", errorMessage);
-    }
-    
-    SearchResult * searchResults;
+    SearchResult searchResults[10];
     int numberOfResults;
-    int numberOfSuggestions;
-    database.search("string", 1, 2, true, searchResults, &numberOfResults, NULL, &numberOfSuggestions);
+    bool searchSuccess = database.search("hello", 10, 0, true, searchResults, &numberOfResults, NULL, NULL, &errorMessage);
+    if (searchSuccess) {
+        printf("Number of results %i\n", numberOfResults);
+    } else {
+        printf("Error searching %s\n", errorMessage);
+    }
     
-    std::string searchText = "   asdf as";
-    std::string formatted = database.formatSearchText(&searchText);
-    printf("formatted :%s:", formatted.c_str());
     return 0;
 }

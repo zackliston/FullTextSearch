@@ -126,11 +126,57 @@ bool SearchDatabase::close() {
 
 #pragma mark - Searching
 
-bool SearchDatabase::search(std::string searchText, int limit, int offset, bool preferPhraseSearching, SearchResult searchResults[], int * numberOfResults, std::string suggestions[], int * numberOfSuggestions) {
+bool SearchDatabase::search(std::string searchText, int limit, int offset, bool preferPhraseSearching, SearchResult searchResults[], int * numberOfResults, std::string suggestions[], int * numberOfSuggestions, char **errorMessage) {
  
+    int wordCount;
+    std::string formattedSearchText = formatSearchText(&searchText, &wordCount);
     
+    // We want to get a snippet one word larger than the number of words we are searching
+    int snippetSize = wordCount +1;
     
-    return false;
+    if (preferPhraseSearching) {
+        formattedSearchText = stringForPhraseSearching(&formattedSearchText);
+    }
+    
+    std::string queryString = "SELECT " + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBTitleKey + ", " + kZLSearchDBSubtitleKey + ", " + kZLSearchDBUriKey + ", " + kZLSearchDBTypeKey + ", " + kZLSearchDBImageUriKey + ", " + kZLSearchDBSnippetKey + ", rank FROM " + kZLSearchDBIndexTableName + " JOIN (SELECT docid, rank(matchinfo(" + kZLSearchDBIndexTableName + ", 'pcnalx'), " + kZLSearchDBIndexTableName + "." + kZLSearchDBBoostKey + ") AS rank, snippet(" + kZLSearchDBIndexTableName + ", '', '', '', -1, " + std::to_string(snippetSize) + ") AS " + kZLSearchDBSnippetKey + " FROM " + kZLSearchDBIndexTableName + " WHERE " + kZLSearchDBIndexTableName + " MATCH ? ORDER BY rank DESC LIMIT " + std::to_string(limit) + " OFFSET " + std::to_string(offset) + " ) AS ranktable USING(docid) LEFT JOIN " + kZLSearchDBMetadataTableName + " AS fulltable USING(" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ") ORDER BY ranktable.rank DESC;";
+    
+    sqlite3_stmt *statement;
+    sqlite3_prepare(database, queryString.c_str(), -1, &statement, NULL);
+    sqlite3_bind_text(statement, 1, formattedSearchText.c_str(), -1, NULL);
+    
+    bool success = true;
+    int returnCode;
+    int index = 0;
+    do {
+        returnCode = sqlite3_step(statement);
+        if (returnCode == SQLITE_ROW) {
+            SearchResult result;
+            populate_search_result(statement, &result);
+            searchResults[index] = result;
+            index++;
+        } else if (returnCode == SQLITE_BUSY) {
+            usleep(100);
+            continue;
+        } else if (returnCode == SQLITE_ERROR) {
+            *errorMessage = strdup(sqlite3_errmsg(database));
+            success = false;
+            break;
+        }
+    } while (returnCode != SQLITE_DONE);
+    sqlite3_finalize(statement);
+    
+    *numberOfResults = index;
+    return success;
+}
+
+inline void SearchDatabase::populate_search_result(sqlite3_stmt *statement, SearchResult * searchResult) {
+    searchResult->moduleId = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 0)));
+    searchResult->fileId = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 1)));
+    searchResult->title = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 2)));
+    searchResult->subtitle = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 3)));
+    searchResult->uri = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 4)));
+    searchResult->type = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 5)));
+    searchResult->imageUri = std::string(reinterpret_cast<const char*>(sqlite3_column_text(statement, 6)));
 }
 
 #pragma mark - Indexing
@@ -313,16 +359,43 @@ bool SearchDatabase::does_file_exist(std::string moduleId, std::string fileId, c
     return false;
 }
 
-std::string SearchDatabase::formatSearchText(std::string *searchText) {
+std::string SearchDatabase::trim(const std::string& str)
+{
     const std::string whitespace = " \t";
-    const auto strBegin = searchText->find_first_not_of(whitespace);
+    const auto strBegin = str.find_first_not_of(whitespace);
     if (strBegin == std::string::npos)
         return ""; // no content
     
-    const auto strEnd = searchText->find_last_not_of(whitespace);
+    const auto strEnd = str.find_last_not_of(whitespace);
     const auto strRange = strEnd - strBegin + 1;
     
-    return searchText->substr(strBegin, strRange) + "*";
+    return str.substr(strBegin, strRange);
+}
+
+std::string SearchDatabase::formatSearchText(std::string *searchText, int * numberOfWords) {
+    const std::string whitespace = " \t";
+    const std::string fill = " ";
+    // trim first
+    auto result = trim(*searchText);
+    
+    // replace sub ranges
+    auto beginSpace = result.find_first_of(whitespace);
+    
+    int count = 1;
+    while (beginSpace != std::string::npos)
+    {
+        const auto endSpace = result.find_first_not_of(whitespace, beginSpace);
+        const auto range = endSpace - beginSpace;
+        
+        result.replace(beginSpace, range, fill);
+        
+        const auto newStart = beginSpace + fill.length();
+        beginSpace = result.find_first_of(whitespace, newStart);
+        count++;
+    }
+    *numberOfWords = count;
+    
+    return result + "*";
 }
 
 std::string SearchDatabase::stringForPhraseSearching(std::string *searchText) {

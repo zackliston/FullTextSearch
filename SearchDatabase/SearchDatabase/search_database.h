@@ -33,7 +33,10 @@ static const std::string kZLSearchDBUriKey = "uri";
 static const std::string kZLSearchDBTypeKey = "type";
 static const std::string kZLSearchDBImageUriKey = "imageuri";
 
+static const std::string kZLSearchDBSnippetKey = "snippet";
+
 struct SearchResult {
+public:
     std::string title;
     std::string subtitle;
     std::string uri;
@@ -49,11 +52,12 @@ public:
     bool setup(char **errorMessage);
     bool close();
     bool reset_database(char **errorMessage);
-    bool search(std::string searchText, int limit, int offset, bool preferPhraseSearching, SearchResult searchResults[], int * numberOfResults, std::string suggestions[], int * numberOfSuggestions);    
+    bool search(std::string searchText, int limit, int offset, bool preferPhraseSearching, SearchResult searchResults[], int * numberOfResults, std::string suggestions[], int * numberOfSuggestions, char **errorMessage);
     bool index_file(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings, std::map<std::string, std::string> fileMetadata, char **errorMessage);
     bool remove_file(std::string moduleId, std::string fileId, char **errorMessage);
     
-    
+    std::string formatSearchText(std::string *searchText, int * numberOfWords);
+
      bool does_file_exist(std::string moduleId, std::string fileId, char **errorMessage);
 private:
     const char * dbName;
@@ -66,8 +70,10 @@ private:
     sqlite3_stmt * index_insert_statement(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings);
     sqlite3_stmt * meta_insert_statement(std::string moduleId, std::string fileId, std::map<std::string, std::string> metadata);
     
-    std::string formatSearchText(std::string *searchText);
+    std::string trim(const std::string& str);
     std::string stringForPhraseSearching(std::string *searchText);
+    
+    inline void populate_search_result(sqlite3_stmt *statement, SearchResult * searchResult);
     
     bool begin_transaction(sqlite3 *db, char **errorMessage);
     bool rollback_transaction(sqlite3 *db, char **errorMessage);
