@@ -12,7 +12,7 @@
 
 int main(int argc, const char * argv[]) {
     // insert code here...
-    SearchDatabase database = SearchDatabase("filename");
+    SearchDatabase database = SearchDatabase("/Users/agilediagnosis/Desktop/database");
     
     char *errorMessage;
     bool success = database.setup(&errorMessage);    
@@ -23,17 +23,18 @@ int main(int argc, const char * argv[]) {
         printf("failure %s\n", errorMessage);
     }
     
-    char *resetErrorMessage;
-    bool resetSuccess = database.reset_database(&resetErrorMessage);
-    if (resetSuccess) {
-        printf("Reset was successful\n");
-    } else {
-        printf("Reset failed %s\n", resetErrorMessage);
-    }
+    
     
     std::map<std::string, std::string> searchable;
-    searchable[kZLSearchDBWeight4Key] = "this is a hello message";
+    searchable[kZLSearchDBWeight4Key] = "hello";
+    searchable[kZLSearchDBWeight3Key] = "hello";
+    searchable[kZLSearchDBWeight2Key] = "hello";
+    searchable[kZLSearchDBWeight1Key] = "hello";
+    searchable[kZLSearchDBWeight0Key] = "hello";
     std::map<std::string, std::string> meta;
+    meta[kZLSearchDBTitleKey] = "The title";
+    meta[kZLSearchDBUriKey] = "www.url.com";
+    
     std::string moduleId = "module";
     std::string fileId = "fileId";
     std::string language = "en";

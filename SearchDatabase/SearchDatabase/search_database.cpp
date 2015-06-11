@@ -196,7 +196,21 @@ bool SearchDatabase::index_file(std::string moduleId, std::string fileId, std::s
         return false;
     }    
     
-    sqlite3_stmt * indexInsertStatement = index_insert_statement(moduleId, fileId, language, boost, searchableStrings);
+    std::string indexInsertCommand = "INSERT INTO " + kZLSearchDBIndexTableName + "(" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBLanguageKey + ", " + kZLSearchDBBoostKey + ", " + kZLSearchDBWeight0Key + ", " + kZLSearchDBWeight1Key + ", " + kZLSearchDBWeight2Key + ", " + kZLSearchDBWeight3Key + ", " + kZLSearchDBWeight4Key + ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    
+    sqlite3_stmt * indexInsertStatement;
+    sqlite3_prepare_v2(database, indexInsertCommand.c_str(), -1, &indexInsertStatement, NULL);
+    
+    sqlite3_bind_text(indexInsertStatement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 2, fileId.c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 3, language.c_str(), -1, NULL);
+    sqlite3_bind_double(indexInsertStatement, 4, boost);
+    sqlite3_bind_text(indexInsertStatement, 5, searchableStrings[kZLSearchDBWeight0Key].c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 6, searchableStrings[kZLSearchDBWeight1Key].c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 7, searchableStrings[kZLSearchDBWeight2Key].c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 8, searchableStrings[kZLSearchDBWeight3Key].c_str(), -1, NULL);
+    sqlite3_bind_text(indexInsertStatement, 9, searchableStrings[kZLSearchDBWeight4Key].c_str(), -1, NULL);
+    
     int insertReturnValue = sqlite3_step(indexInsertStatement);
     sqlite3_finalize(indexInsertStatement);
     
@@ -206,7 +220,19 @@ bool SearchDatabase::index_file(std::string moduleId, std::string fileId, std::s
         return false;
     }
     
-    sqlite3_stmt * metaInsertStatement = meta_insert_statement(moduleId, fileId, fileMetadata);
+    
+    std::string metaInsertCommand = "INSERT INTO " + kZLSearchDBMetadataTableName + " (" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBTitleKey + ", " + kZLSearchDBSubtitleKey + ", " + kZLSearchDBTypeKey + ", " + kZLSearchDBUriKey + ", " + kZLSearchDBImageUriKey + ") VALUES (?, ?, ?, ?, ?, ?, ?);";
+    
+    sqlite3_stmt * metaInsertStatement;
+    sqlite3_prepare_v2(database, metaInsertCommand.c_str(), -1, &metaInsertStatement, NULL);
+    sqlite3_bind_text(metaInsertStatement, 1, moduleId.c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 2, fileId.c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 3, fileMetadata[kZLSearchDBTitleKey].c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 4, fileMetadata[kZLSearchDBSubtitleKey].c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 5, fileMetadata[kZLSearchDBTypeKey].c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 6, fileMetadata[kZLSearchDBUriKey].c_str(), -1, NULL);
+    sqlite3_bind_text(metaInsertStatement, 7, fileMetadata[kZLSearchDBImageUriKey].c_str(), -1, NULL);
+
     insertReturnValue = sqlite3_step(metaInsertStatement);
     sqlite3_finalize(metaInsertStatement);
     
@@ -272,41 +298,6 @@ bool SearchDatabase::reset_database(char **errorMessage) {
 }
 
 #pragma mark - Helpers
-
-sqlite3_stmt * SearchDatabase::index_insert_statement(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings) {
-    std::string insertCommand = "INSERT INTO " + kZLSearchDBIndexTableName + "(" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBLanguageKey + ", " + kZLSearchDBBoostKey + ", " + kZLSearchDBWeight0Key + ", " + kZLSearchDBWeight1Key + ", " + kZLSearchDBWeight2Key + ", " + kZLSearchDBWeight3Key + ", " + kZLSearchDBWeight4Key + ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);";
-    
-    sqlite3_stmt * statement;
-    sqlite3_prepare_v2(database, insertCommand.c_str(), -1, &statement, NULL);
-    
-    sqlite3_bind_text(statement, 1, moduleId.c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 2, fileId.c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 3, language.c_str(), -1, NULL);
-    sqlite3_bind_double(statement, 4, boost);
-    sqlite3_bind_text(statement, 5, searchableStrings[kZLSearchDBWeight0Key].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 6, searchableStrings[kZLSearchDBWeight1Key].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 7, searchableStrings[kZLSearchDBWeight2Key].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 8, searchableStrings[kZLSearchDBWeight3Key].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 9, searchableStrings[kZLSearchDBWeight4Key].c_str(), -1, NULL);
-    
-    return statement;
-}
-
-sqlite3_stmt * SearchDatabase::meta_insert_statement(std::string moduleId, std::string fileId, std::map<std::string, std::string> metadata) {
-    std::string insertCommand = "INSERT INTO " + kZLSearchDBMetadataTableName + " (" + kZLSearchDBModuleIdKey + ", " + kZLSearchDBEntityIdKey + ", " + kZLSearchDBTitleKey + ", " + kZLSearchDBSubtitleKey + ", " + kZLSearchDBTypeKey + ", " + kZLSearchDBUriKey + ", " + kZLSearchDBImageUriKey + ") VALUES (?, ?, ?, ?, ?, ?, ?);";
-    
-    sqlite3_stmt * statement;
-    sqlite3_prepare_v2(database, insertCommand.c_str(), -1, &statement, NULL);
-    sqlite3_bind_text(statement, 1, moduleId.c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 2, fileId.c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 3, metadata[kZLSearchDBTitleKey].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 4, metadata[kZLSearchDBSubtitleKey].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 5, metadata[kZLSearchDBTypeKey].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 6, metadata[kZLSearchDBUriKey].c_str(), -1, NULL);
-    sqlite3_bind_text(statement, 7, metadata[kZLSearchDBImageUriKey].c_str(), -1, NULL);
-
-    return statement;
-}
 
 bool SearchDatabase::begin_transaction(sqlite3 *db, char **errorMessage) {
     int beginReturnValue = sqlite3_exec(db, "BEGIN", NULL, NULL, errorMessage);

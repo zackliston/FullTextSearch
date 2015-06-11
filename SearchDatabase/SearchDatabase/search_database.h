@@ -67,9 +67,6 @@ private:
     bool issue_automerge_command(sqlite3 *db, char **errorMessage);
     bool register_ranking_function(sqlite3 *db, char **errorMessage);
     
-    sqlite3_stmt * index_insert_statement(std::string moduleId, std::string fileId, std::string language, double boost, std::map<std::string, std::string> searchableStrings);
-    sqlite3_stmt * meta_insert_statement(std::string moduleId, std::string fileId, std::map<std::string, std::string> metadata);
-    
     std::string trim(const std::string& str);
     std::string stringForPhraseSearching(std::string *searchText);
     
