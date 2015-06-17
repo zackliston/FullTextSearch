@@ -23,17 +23,10 @@ android {
         }
     }
 }
-
-repositories {
-    maven {
-        url "file:///Users/agilediagnosis/Developer/TaskManager/taskmanager/build/release/0.0.1"
-    }
-}
-
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     compile 'com.android.support:appcompat-v7:22.1.1'
-    compile 'com.zackliston:taskmanager:0.0.1@aar'
+    compile 'com.zackliston.taskmanager:taskmanager:0.0.+'
     compile 'commons-io:commons-io:2.0.1'
 
     testCompile 'junit:junit:4.12'
